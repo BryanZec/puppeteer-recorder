@@ -22,7 +22,8 @@ export const defaults = {
   waitForNavigation: true,
   waitForSelectorOnClick: true,
   blankLinesBetweenBlocks: true,
-  dataAttribute: ''
+  dataAttribute: '',
+  useRegexForDataAttribute: false
 }
 
 export default class CodeGenerator {
@@ -56,7 +57,7 @@ export default class CodeGenerator {
     let result = ''
 
     for (let i = 0; i < events.length; i++) {
-      const { action, selector, value, href, keyCode, tagName, frameId, frameUrl } = events[i]
+      const { action, selector, value, href, keyCode, tagName, frameId, frameUrl, comments } = events[i]
 
       // we need to keep a handle on what frames events originate from
       this._setFrames(frameId, frameUrl)
@@ -64,25 +65,25 @@ export default class CodeGenerator {
       switch (action) {
         case 'keydown':
           if (keyCode === 9) {
-            this._blocks.push(this._handleKeyDown(selector, value, keyCode))
+            this._blocks.push(this._handleComments(this._handleKeyDown(selector, value, keyCode), comments))
           }
           break
         case 'click':
-          this._blocks.push(this._handleClick(selector, events))
+          this._blocks.push(this._handleComments(this._handleClick(selector, events), comments))
           break
         case 'change':
           if (tagName === 'SELECT') {
-            this._blocks.push(this._handleChange(selector, value))
+            this._blocks.push(this._handleComments(this._handleChange(selector, value), comments))
           }
           break
         case 'goto*':
-          this._blocks.push(this._handleGoto(href, frameId))
+          this._blocks.push(this._handleComments(this._handleGoto(href, frameId), comments))
           break
         case 'viewport*':
-          this._blocks.push((this._handleViewport(value.width, value.height)))
+          this._blocks.push(this._handleComments(this._handleViewport(value.width, value.height), comments))
           break
         case 'navigation*':
-          this._blocks.push(this._handleWaitForNavigation())
+          this._blocks.push(this._handleComments(this._handleWaitForNavigation(), comments))
           this._hasNavigation = true
           break
       }
@@ -130,6 +131,13 @@ export default class CodeGenerator {
     if (this._options.blankLinesBetweenBlocks && this._blocks.length > 0) {
       this._postProcessAddBlankLines()
     }
+  }
+
+  _handleComments (block, comments) {
+    if (comments) {
+      block.addLineToTop({ value: `/** ${comments} */` })
+    }
+    return block
   }
 
   _handleKeyDown (selector, value) {

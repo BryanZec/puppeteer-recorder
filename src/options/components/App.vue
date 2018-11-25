@@ -14,10 +14,17 @@
           </h4>
           <div class="settings-block-main">
             <div class="settings-group">
-              <label class="settings-label">custom data attribute</label>
+              <label class="settings-label">custom attribute(s) (separate with spaces)</label>
               <input id="options-code-dataAttribute" type="text" v-model="options.code.dataAttribute" @change="save" placeholder="your custom data-* attribute">
-              <small>Define a <code>data-*</code> attribute that we'll attempt to use when selecting the elements. This is handy
+              <small>Define a <code>data-*</code> attribute(s) that we'll attempt to use when selecting the elements. This is handy
                 when React or Vue based apps generate random class names.</small>
+            </div>
+            <div class="settings-group">
+              <label>
+                <input id="options-code-useRegexForDataAttribute" type="checkbox" v-model="options.code.useRegexForDataAttribute" @change="save">
+                Use regular expression <code>Regex</code> for each custom attribute.
+              </label><br>
+              <small>Example : <code>^id$ ^[a-z]\.bind$</code></small>
             </div>
           </div>
         </div>

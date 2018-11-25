@@ -10,10 +10,18 @@ class EventRecorder {
 
   start () {
     chrome.storage.local.get(['options'], ({ options }) => {
-      const {dataAttribute} = options ? options.code : {}
+      const {dataAttribute, useRegexForDataAttribute} = options ? options.code : {}
       if (dataAttribute) {
-        this.dataAttribute = dataAttribute
+        this.dataAttributes = dataAttribute.split(' ').filter(f => f !== '').map(f => {
+          if (useRegexForDataAttribute) {
+            return new RegExp(f)
+          } else {
+            return f
+          }
+        })
       }
+
+      this.useRegexForDataAttribute = useRegexForDataAttribute
 
       const events = Object.values(eventsToRecord)
       if (!window.pptRecorderAddedControlListeners) {
@@ -74,13 +82,41 @@ class EventRecorder {
   recordEvent (e) {
     if (this.previousEvent && this.previousEvent.timeStamp === e.timeStamp) return
     this.previousEvent = e
+    let customAttribute = null
+    if (this.dataAttributes && this.dataAttributes.length && e.target.hasAttribute) {
+      // We search custom attribute
+      const targetAttributes = e.target.attributes
 
-    const selector = e.target.hasAttribute && e.target.hasAttribute(this.dataAttribute)
-      ? formatDataSelector(e.target, this.dataAttribute)
+      // Order of patterns is important
+      this.dataAttributes.find(patternAttr => {
+        // We test each target attribute with pattern
+        for (let i = 0; i < targetAttributes.length; i++) {
+          // Regex or string test
+          if (this.useRegexForDataAttribute ? patternAttr.test(targetAttributes[i].name) : patternAttr === targetAttributes[i].name) {
+            customAttribute = targetAttributes[i].name
+            // The search is finish
+            return true
+          }
+        }
+
+        return false
+      })
+    }
+
+    const selector = customAttribute
+      ? formatDataSelector(e.target, customAttribute)
       : finder(e.target, { seedMinLength: 5, optimizedMinLength: 10 })
+
+    let comments = ''
+    // We need to check if the selector is ambiguous...
+    if (customAttribute && document.querySelectorAll(selector).length > 1) {
+      // More than one element, so the test will be wrong.
+      comments = '/!\\ The selector returns more than one element, thus the test will be wrong.'
+    }
 
     const msg = {
       selector: selector,
+      comments,
       value: e.target.value,
       tagName: e.target.tagName,
       action: e.type,
@@ -111,7 +147,7 @@ function getCoordinates (evt) {
 }
 
 function formatDataSelector (element, attribute) {
-  return `[${attribute}=${element.getAttribute(attribute)}]`
+  return `[${attribute}="${element.getAttribute(attribute)}"]`.replace(/\./g, '\\.')
 }
 
 window.eventRecorder = new EventRecorder()
