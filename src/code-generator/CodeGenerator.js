@@ -23,7 +23,8 @@ export const defaults = {
   waitForSelectorOnClick: true,
   blankLinesBetweenBlocks: true,
   dataAttribute: '',
-  useRegexForDataAttribute: false
+  useRegexForDataAttribute: false,
+  customLineAfterClick: ''
 }
 
 export default class CodeGenerator {
@@ -62,30 +63,42 @@ export default class CodeGenerator {
       // we need to keep a handle on what frames events originate from
       this._setFrames(frameId, frameUrl)
 
+      let newBlock = null
       switch (action) {
+        case 'submit':
+          if (tagName === 'FORM') {
+            newBlock = this._handleSubmit(selector, value)
+          }
+          break
         case 'keydown':
           if (keyCode === 9) {
-            this._blocks.push(this._handleComments(this._handleKeyDown(selector, value, keyCode), comments))
+            newBlock = this._handleKeyDown(selector, value, keyCode)
           }
           break
         case 'click':
-          this._blocks.push(this._handleComments(this._handleClick(selector, events), comments))
+          newBlock = this._handleClick(selector, events)
           break
         case 'change':
           if (tagName === 'SELECT') {
-            this._blocks.push(this._handleComments(this._handleChange(selector, value), comments))
+            newBlock = this._handleSelectChange(selector, value)
+          } else {
+            newBlock = this._handleChange(selector, value)
           }
           break
         case 'goto*':
-          this._blocks.push(this._handleComments(this._handleGoto(href, frameId), comments))
+          newBlock = this._handleGoto(href, frameId)
           break
         case 'viewport*':
-          this._blocks.push(this._handleComments(this._handleViewport(value.width, value.height), comments))
+          newBlock = this._handleViewport(value.width, value.height)
           break
         case 'navigation*':
-          this._blocks.push(this._handleComments(this._handleWaitForNavigation(), comments))
+          newBlock = this._handleWaitForNavigation()
           this._hasNavigation = true
           break
+      }
+
+      if (newBlock) {
+        this._blocks.push(this._handleComments(newBlock, comments))
       }
     }
 
@@ -140,7 +153,11 @@ export default class CodeGenerator {
     return block
   }
 
-  _handleKeyDown (selector, value) {
+  _handleSubmit (selector, value) {
+    return new Block(this._frameId, { type: domEvents.CHANGE, value: `await ${this._frame}.$eval('${selector}', form => form.submit())` })
+  }
+
+  _handleKeyDown (selector, value, keyCode) {
     const block = new Block(this._frameId)
     block.addLine({ type: domEvents.KEYDOWN, value: `await ${this._frame}.type('${selector}', '${value}')` })
     return block
@@ -152,11 +169,20 @@ export default class CodeGenerator {
       block.addLine({ type: domEvents.CLICK, value: `await ${this._frame}.waitForSelector('${selector}')` })
     }
     block.addLine({ type: domEvents.CLICK, value: `await ${this._frame}.click('${selector}')` })
+    if (this._options.customLineAfterClick) {
+      block.addLine({ type: domEvents.CLICK, value: `${this._options.customLineAfterClick}` })
+    }
     return block
   }
-  _handleChange (selector, value) {
+
+  _handleSelectChange (selector, value) {
     return new Block(this._frameId, { type: domEvents.CHANGE, value: `await ${this._frame}.select('${selector}', '${value}')` })
   }
+
+  _handleChange (selector, value) {
+    return new Block(this._frameId, { type: domEvents.CHANGE, value: `await ${this._frame}.type('${selector}', '${value}')` })
+  }
+
   _handleGoto (href) {
     return new Block(this._frameId, { type: pptrActions.GOTO, value: `await ${this._frame}.goto('${href}')` })
   }

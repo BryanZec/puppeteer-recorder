@@ -58,6 +58,10 @@
               </label>
             </div>
             <div class="settings-group">
+               <label class="settings-label"> add custom lines after every <code>page.click()</code></label>
+               <input id="options-code-customLineAfterClick" type="text" v-model="options.code.customLineAfterClick" @change="save">
+            </div>
+            <div class="settings-group">
               <label>
                 <input id="options-code-blankLinesBetweenBlocks" type="checkbox" v-model="options.code.blankLinesBetweenBlocks" @change="save">
                 add blank lines between code blocks
@@ -137,7 +141,7 @@
 
     .container {
       padding: 0 2 * $spacer;
-      width: 550px;
+      width: 640px;
       margin: 0 auto;
 
       .content {
